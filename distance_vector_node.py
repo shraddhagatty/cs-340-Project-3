@@ -22,7 +22,8 @@ class Distance_Vector_Node(Node):
             self.costs[frozenset((self.id, neighbor))] = float("inf")
         else:
             self.costs[frozenset((self.id, neighbor))] = latency
-        
+
+
         change = self.bf_update()
         if change:
             time = self.get_time()
@@ -33,7 +34,7 @@ class Distance_Vector_Node(Node):
     def process_incoming_routing_message(self, m):
         message = json.loads(m)
         time_sent = message[0]
-        source_node = message[1]
+        source_node = int(message[1])
         dvs = message[2]
         
         if source_node in self.neighbor_dvs.keys(): 
@@ -42,7 +43,6 @@ class Distance_Vector_Node(Node):
                 self.neighbor_dvs[source_node][1] = dvs
 
         else: 
-            print("here")
             self.neighbor_dvs[source_node] = [0, 0]
             self.neighbor_dvs[source_node][0]= time_sent
             self.neighbor_dvs[source_node][1] = dvs
@@ -65,59 +65,38 @@ class Distance_Vector_Node(Node):
     def bf_update(self):
         dvs = {self.id : (0, [self.id])}
 
-        #get vertices of graph present in neighbor_dvs
-        vertices = []
-        for neighbor_id in self.neighbor_dvs.keys():
-            neighbor_dvs = self.neighbor_dvs[neighbor_id][1]
-            vertices.extend(list(neighbor_dvs.keys()))
+        for neighbor in self.neighbor_dvs.keys(): 
+            neighbor_dvs = self.neighbor_dvs[neighbor][1]
 
-        vertices = list(dict.fromkeys(vertices))
-        print(vertices)
-
-
-        for destination in vertices:
-            if int(destination) != self.id:
-                print("IN LOOP")
-                print("DESTINATION", destination)
+            for destination in neighbor_dvs.keys(): 
                 destination = int(destination)
+                path = copy.deepcopy(neighbor_dvs[str(destination)][1]) 
+                #make sure current node is not the destination AND self.id is NOT in the path
+                if destination != self.id and self.id not in path:
+                    dist = self.costs[frozenset((self.id, neighbor))] + neighbor_dvs[str(destination)][0]
 
-                min_dist = float("inf")
-                min_path = []
-
-                for neighbor_id in self.neighbor_dvs.keys():
-                    neighbor_dvs = self.neighbor_dvs[neighbor_id][1]
-                    print(neighbor_dvs.keys())
-                    if str(destination) in neighbor_dvs.keys():
-                        print("SELF ID", self.id)
-                        print("DESTINATION", destination)
-                        print(self.costs)
-                        dist = self.costs[frozenset((self.id, neighbor_id))] + neighbor_dvs[str(destination)][0]
-                        path = copy.deepcopy(neighbor_dvs[str(destination)][1])
-                        if self.id in path: continue
-                    elif frozenset((self.id, destination)) in self.costs.keys(): 
+                    #check if destination is a neighbor in costs and if its shorter than going through neighbor
+                    if frozenset((self.id, destination)) in self.costs.keys() and self.costs[frozenset((self.id, destination))] < dist: 
                         dist = self.costs[frozenset((self.id, destination))]
                         path = [destination]
 
-                    else:
-                        dist = float("inf")
-                        path = []
-
-                    #compare current min distance with path through this neighbor
-                    if dist < min_dist: 
-                        min_dist = dist 
+                    #check if there is an entry for this destination
+                    if destination in dvs.keys():
+                        #see if the distance to dest through neighbor is shorter than the one recorded                    
+                        if dist < dvs[destination][0]:
+                            dvs[destination][0] = dist
+                            path.insert(0, self.id)
+                            dvs[destination][1] = path
+                    else: 
+                        #create instance in dvs
+                        dvs[destination] = [0,0]
+                        dvs[destination][0] = dist
                         path.insert(0, self.id)
-                        min_path = path 
-                
-                dvs[destination] = (min_dist, min_path)
+                        dvs[destination][1] = path
 
-        print("CURRENT DVS:", self.dvs)
-        print("CHANGED DVS:", dvs)
-    
         if dvs != self.dvs: 
-            print("UPDATING")
             self.dvs = dvs
             return True  
 
         return False
-
 
