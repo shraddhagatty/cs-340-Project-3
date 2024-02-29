@@ -19,7 +19,8 @@ class Distance_Vector_Node(Node):
     def link_has_been_updated(self, neighbor, latency):
         # latency = -1 if delete a link
         if latency == -1: 
-            self.costs[frozenset((self.id, neighbor))] = float("inf")
+            del self.costs[frozenset((self.id, neighbor))]
+            del self.neighbor_dvs[neighbor]
         else:
             self.costs[frozenset((self.id, neighbor))] = latency
 
@@ -36,6 +37,7 @@ class Distance_Vector_Node(Node):
         time_sent = message[0]
         source_node = int(message[1])
         dvs = message[2]
+
         
         if source_node in self.neighbor_dvs.keys(): 
             if time_sent > self.neighbor_dvs[source_node][0]:
@@ -72,7 +74,7 @@ class Distance_Vector_Node(Node):
                 destination = int(destination)
                 path = copy.deepcopy(neighbor_dvs[str(destination)][1]) 
                 #make sure current node is not the destination AND self.id is NOT in the path
-                if destination != self.id and self.id not in path:
+                if destination != self.id and self.id not in path and frozenset((self.id, neighbor)) in self.costs.keys():
                     dist = self.costs[frozenset((self.id, neighbor))] + neighbor_dvs[str(destination)][0]
 
                     #check if destination is a neighbor in costs and if its shorter than going through neighbor
