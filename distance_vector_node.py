@@ -9,7 +9,6 @@ class Distance_Vector_Node(Node):
         self.dvs = {} # node_id : (cost, [path])
         self.costs = {} # (source, destination) : cost
         self.neighbor_dvs = {} #node_id : (time_sent, neighbor_dvs)
-        self.latest_received_time_sent = -1 #latest recieved update
         self.neighbors = []
 
 
@@ -58,8 +57,6 @@ class Distance_Vector_Node(Node):
             self.neighbor_dvs[source_node] = [0, 0]
             self.neighbor_dvs[source_node][0]= time_sent
             self.neighbor_dvs[source_node][1] = dvs
-        
-
 
         change = self.bf_update()
         if change: 
