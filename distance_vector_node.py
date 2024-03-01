@@ -21,24 +21,28 @@ class Distance_Vector_Node(Node):
 
         # latency = -1 if delete a link
         if latency == -1: 
-            # #loop through own dv and delete entry if neighbor is next hop 
-            # dests = copy.deepcopy(list(self.dvs.keys()))
-            # for destination in dests: 
-            #     if destination != self.id and self.get_next_hop(destination) == neighbor: 
-            #         del self.dvs[destination]
+            #loop through own dv and delete entry if neighbor is next hop 
+            dests = copy.deepcopy(list(self.dvs.keys()))
+            for destination in dests: 
+                if destination != self.id and self.get_next_hop(destination) == neighbor: 
+                    del self.dvs[destination]
 
             del self.costs[frozenset((self.id, neighbor))]
             del self.neighbor_dvs[neighbor]
             self.neighbors.pop(self.neighbors.index(neighbor))
+
+            time = self.get_time()
+            self.send_to_neighbors(json.dumps([time, self.id, self.dvs]))
+
         else:
             self.costs[frozenset((self.id, neighbor))] = latency
             if neighbor not in self.neighbors: self.neighbors.append(neighbor)
 
-        #update again to see if there is a change
-        change = self.bf_update()
-        if change:
-            time = self.get_time()
-            self.send_to_neighbors(json.dumps([time, self.id, self.dvs]))
+            #update again to see if there is a change
+            change = self.bf_update()
+            if change:
+                time = self.get_time()
+                self.send_to_neighbors(json.dumps([time, self.id, self.dvs]))
 
 
     # Fill in this function
