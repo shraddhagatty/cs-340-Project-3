@@ -10,6 +10,7 @@ class Distance_Vector_Node(Node):
         self.costs = {} # (source, destination) : cost
         self.neighbor_dvs = {} #node_id : (time_sent, neighbor_dvs)
         self.latest_received_time_sent = -1 #latest recieved update
+        self.neighbors = []
 
 
     # Return a string
@@ -18,6 +19,7 @@ class Distance_Vector_Node(Node):
 
     # Fill in this function
     def link_has_been_updated(self, neighbor, latency):
+
         # latency = -1 if delete a link
         if latency == -1: 
             # #loop through own dv and delete entry if neighbor is next hop 
@@ -28,8 +30,10 @@ class Distance_Vector_Node(Node):
 
             del self.costs[frozenset((self.id, neighbor))]
             del self.neighbor_dvs[neighbor]
+            self.neighbors.pop(self.neighbors.index(neighbor))
         else:
             self.costs[frozenset((self.id, neighbor))] = latency
+            if neighbor not in self.neighbors: self.neighbors.append(neighbor)
 
         #update again to see if there is a change
         change = self.bf_update()
@@ -45,7 +49,7 @@ class Distance_Vector_Node(Node):
         source_node = int(message[1])
         dvs = message[2]
 
-        
+        if source_node not in self.neighbors: self.neighbors.append(source_node)
         if source_node in self.neighbor_dvs.keys(): 
             if time_sent > self.neighbor_dvs[source_node][0]:
                 self.neighbor_dvs[source_node][0]= time_sent
@@ -54,6 +58,7 @@ class Distance_Vector_Node(Node):
             self.neighbor_dvs[source_node] = [0, 0]
             self.neighbor_dvs[source_node][0]= time_sent
             self.neighbor_dvs[source_node][1] = dvs
+        
 
 
         change = self.bf_update()
@@ -74,36 +79,54 @@ class Distance_Vector_Node(Node):
     def bf_update(self):
         dvs = {self.id : (0, [self.id])}
 
-        for neighbor in self.neighbor_dvs.keys(): 
-            neighbor_dvs = self.neighbor_dvs[neighbor][1]
+        for neighbor in self.neighbors: 
+            #check if we have the neighbors dv
+            if neighbor in self.neighbor_dvs.keys(): 
+                neighbor_dvs = self.neighbor_dvs[neighbor][1]
 
-            for destination in neighbor_dvs.keys(): 
-                destination = int(destination)
-                path = copy.deepcopy(neighbor_dvs[str(destination)][1]) 
-                #make sure current node is not the destination AND self.id is NOT in the path
-                if destination != self.id and self.id not in path:
-                    if frozenset((self.id, neighbor)) in self.costs.keys():
-                        dist = self.costs[frozenset((self.id, neighbor))] + neighbor_dvs[str(destination)][0]
+                for destination in neighbor_dvs.keys(): 
+                    destination = int(destination)
+                    path = copy.deepcopy(neighbor_dvs[str(destination)][1]) 
+                    #make sure current node is not the destination AND self.id is NOT in the path
+                    if destination != self.id and self.id not in path:
+                        if frozenset((self.id, neighbor)) in self.costs.keys():
+                            dist = self.costs[frozenset((self.id, neighbor))] + neighbor_dvs[str(destination)][0]
 
-                    #check if destination is a neighbor in costs and if its shorter than going through neighbor
-                    if frozenset((self.id, destination)) in self.costs.keys() and self.costs[frozenset((self.id, destination))] < dist: 
-                        dist = self.costs[frozenset((self.id, destination))]
-                        path = [destination]
+                        #check if destination is a neighbor in costs and if its shorter than going through neighbor
+                        if frozenset((self.id, destination)) in self.costs.keys() and self.costs[frozenset((self.id, destination))] < dist: 
+                            dist = self.costs[frozenset((self.id, destination))]
+                            path = [destination]
 
-                    #check if there is an entry for this destination
-                    if destination in dvs.keys():
-                        #see if the distance to dest through neighbor is shorter than the one recorded                    
-                        if dist < dvs[destination][0]:
+                        #check if there is an entry for this destination
+                        if destination in dvs.keys():
+                            #see if the distance to dest through neighbor is shorter than the one recorded                    
+                            if dist < dvs[destination][0]:
+                                dvs[destination][0] = dist
+                                path.insert(0, self.id)
+                                dvs[destination][1] = path
+                        else: 
+                            #create instance in dvs
+                            dvs[destination] = [0,0]
                             dvs[destination][0] = dist
                             path.insert(0, self.id)
                             dvs[destination][1] = path
-                    else: 
-                        #create instance in dvs
-                        dvs[destination] = [0,0]
-                        dvs[destination][0] = dist
-                        path.insert(0, self.id)
-                        dvs[destination][1] = path
+            #we don't have the neighbors dv, so make distance the link length and check against stored distance
+            else: 
+                dist = self.costs[frozenset((self.id, neighbor))]
+                path = [self.id, neighbor]
+                if neighbor in dvs.keys():
+                    #see if the distance to neighbor is shorter than the one recorded                    
+                    if dist < dvs[neighbor][0]:
+                        dvs[neighbor][0] = dist
+                        dvs[neighbor][1] = path
+                else: 
+                    #create instance in dvs
+                    dvs[neighbor] = [0,0]
+                    dvs[neighbor][0] = dist
+                    dvs[neighbor][1] = path
+               
 
+  
         if dvs != self.dvs: 
             self.dvs = dvs
             return True  
