@@ -9,6 +9,7 @@ class Distance_Vector_Node(Node):
         self.dvs = {} # node_id : (cost, [path])
         self.costs = {} # (source, destination) : cost
         self.neighbor_dvs = {} #node_id : (time_sent, neighbor_dvs)
+        self.latest_received_time_sent = -1 #latest recieved update
 
 
     # Return a string
@@ -19,12 +20,18 @@ class Distance_Vector_Node(Node):
     def link_has_been_updated(self, neighbor, latency):
         # latency = -1 if delete a link
         if latency == -1: 
+            # #loop through own dv and delete entry if neighbor is next hop 
+            # dests = copy.deepcopy(list(self.dvs.keys()))
+            # for destination in dests: 
+            #     if destination != self.id and self.get_next_hop(destination) == neighbor: 
+            #         del self.dvs[destination]
+
             del self.costs[frozenset((self.id, neighbor))]
             del self.neighbor_dvs[neighbor]
         else:
             self.costs[frozenset((self.id, neighbor))] = latency
 
-
+        #update again to see if there is a change
         change = self.bf_update()
         if change:
             time = self.get_time()
@@ -43,11 +50,11 @@ class Distance_Vector_Node(Node):
             if time_sent > self.neighbor_dvs[source_node][0]:
                 self.neighbor_dvs[source_node][0]= time_sent
                 self.neighbor_dvs[source_node][1] = dvs
-
         else: 
             self.neighbor_dvs[source_node] = [0, 0]
             self.neighbor_dvs[source_node][0]= time_sent
             self.neighbor_dvs[source_node][1] = dvs
+
 
         change = self.bf_update()
         if change: 
@@ -74,8 +81,9 @@ class Distance_Vector_Node(Node):
                 destination = int(destination)
                 path = copy.deepcopy(neighbor_dvs[str(destination)][1]) 
                 #make sure current node is not the destination AND self.id is NOT in the path
-                if destination != self.id and self.id not in path and frozenset((self.id, neighbor)) in self.costs.keys():
-                    dist = self.costs[frozenset((self.id, neighbor))] + neighbor_dvs[str(destination)][0]
+                if destination != self.id and self.id not in path:
+                    if frozenset((self.id, neighbor)) in self.costs.keys():
+                        dist = self.costs[frozenset((self.id, neighbor))] + neighbor_dvs[str(destination)][0]
 
                     #check if destination is a neighbor in costs and if its shorter than going through neighbor
                     if frozenset((self.id, destination)) in self.costs.keys() and self.costs[frozenset((self.id, destination))] < dist: 
